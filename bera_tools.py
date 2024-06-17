@@ -25,8 +25,8 @@ from config.other_config import emoji_list
 class BeraChainTools(object):
     def __init__(self, private_key, client_key='', solver_provider='', rpc_url='https://artio.rpc.berachain.com/'):
         # if solver_provider not in ["yescaptcha", "2captcha", "ez-captcha", ""]:
-        if solver_provider not in ["yescaptcha", "2captcha"]:
-            raise ValueError("solver_provider must be 'yescaptcha' or '2captcha' or 'ez-captcha' ")
+        # if solver_provider not in ["yescaptcha", "2captcha"]:
+        #     raise ValueError("solver_provider must be 'yescaptcha' or '2captcha' or 'ez-captcha' ")
         self.solver_provider = solver_provider
         self.private_key = private_key
         self.client_key = client_key
@@ -232,25 +232,35 @@ class BeraChainTools(object):
                 raise ValueError(
                     f'需要授权\nplease run : \nbera.approve_token(bex_swap_address, int("0x" + "f" * 64, 16), "{asset_in_address}")')
 
-        headers = {'authority': 'artio-80085-dex-router.berachain.com', 'accept': '*/*',
+        headers = {'authority': 'bartio-bex-router.berachain-devnet.com', 'accept': '*/*',
                    'accept-language': 'zh-CN,zh;q=0.9', 'cache-control': 'no-cache',
-                   'origin': 'https://artio.bex.berachain.com', 'pragma': 'no-cache',
-                   'referer': 'https://artio.bex.berachain.com/', 'user-agent': self.fake.chrome()}
+                   'origin': 'https://bartio.bex.berachain.com', 'pragma': 'no-cache',
+                   'referer': 'https://bartio.bex.berachain.com/', 'user-agent': self.fake.chrome()}
 
-        params = {'quoteAsset': asset_out_address, 'baseAsset': asset_in_address, 'amount': amount_in,
-                  'swap_type': 'given_in'}
+        params = {
+            "fromAsset": asset_in_address,
+            "toAsset": asset_out_address,
+            "amount": amount_in,
+        }
 
-        response = self.session.get('https://artio-80085-dex-router.berachain.com/dex/route', params=params,
+        print("params: ", params)
+        response = self.session.get('https://bartio-bex-router.berachain-devnet.com/dex/route', params=params,
                                     headers=headers)
+        
         assert response.status_code == 200
         swaps_list = response.json()['steps']
         swaps = list()
+        print("swaps_list: ", swaps_list)
+
+
         for index, info in enumerate(swaps_list):
+            isBuy = info['isBuy']
+
             swaps.append(dict(
-                poolId=self.w3.to_checksum_address(info['pool']),
-                assetIn=self.w3.to_checksum_address(info['assetIn']),
+                poolId=self.w3.to_checksum_address(info['poolIdx']),
+                assetIn=self.w3.to_checksum_address(info['base']) if isBuy else self.w3.to_checksum_address(info['quote']),
                 amountIn=int(info['amountIn']),
-                assetOut=self.w3.to_checksum_address(info['assetOut']),
+                assetOut=self.w3.to_checksum_address(info['quote']) if isBuy else self.w3.to_checksum_address(info['base']),
                 amountOut=0 if index + 1 != len(swaps_list) else int(int(info['amountOut']) * 0.5),
                 userData=b''))
         if asset_in_address.lower() == wbear_address.lower():
